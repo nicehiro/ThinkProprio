@@ -1,0 +1,966 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ThinkProprio: State-Grounded Visual Token Selection for VLA Policies</title>
+    <meta name="description" content="ThinkProprio uses proprioception as VLM-vocabulary tokens that, with the instruction, select visual tokens before the VLM, improving VLA policies while cutting latency from 52 ms to 22 ms.">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="ThinkProprio: State-Grounded Visual Token Selection for VLA Policies">
+    <meta property="og:description" content="State-grounded visual token selection for efficient VLA policies.">
+    <meta property="og:type" content="website">
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Source+Sans+3:wght@400;600;700&family=Source+Code+Pro&display=swap" rel="stylesheet">
+
+    <!-- Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="container">
+            <!-- Title -->
+            <h1 class="title">Think Proprioceptively</h1>
+            <h2 class="subtitle">State-Grounded Visual Token Selection for VLA Policies</h2>
+
+            <!-- Authors -->
+            <div class="authors">
+                <span class="author">Fangyuan Wang<sup>1,2</sup></span>
+                <span class="author">Peng Zhou<sup>3</sup></span>
+                <span class="author">Jiaming Qi<sup>4</sup></span>
+                <span class="author">Shipeng Lyu<sup>1,2</sup></span>
+                <span class="author">Chengyang He<sup>5</sup></span>
+                <span class="author">David Navarro-Alarcon<sup>1,*</sup></span>
+                <span class="author">Guodong Guo<sup>2,*</sup></span>
+            </div>
+
+            <!-- Affiliations -->
+            <div class="affiliations">
+                <span class="affiliation"><sup>1</sup>The Hong Kong Polytechnic University</span>
+                <span class="affiliation"><sup>2</sup>Eastern Institute of Technology</span>
+                <span class="affiliation"><sup>3</sup>Great Bay University</span>
+                <span class="affiliation"><sup>4</sup>Northeast Forestry University</span>
+                <span class="affiliation"><sup>5</sup>National University of Singapore</span>
+                <span class="affiliation"><sup>*</sup>Corresponding authors</span>
+            </div>
+
+            <!-- Resource Links -->
+            <div class="links">
+                <a href="https://arxiv.org/abs/2602.06575" class="btn btn-paper" target="_blank">
+                    <i class="fas fa-file-pdf"></i> Paper
+                </a>
+                <a href="https://github.com/nicehiro/ThinkProprio" class="btn btn-code" target="_blank">
+                    <i class="fab fa-github"></i> Code
+                </a>
+                <a href="#" class="btn btn-model" onclick="event.preventDefault(); showComingSoon();">
+                    <i class="fas fa-cube"></i> Checkpoints
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Teaser -->
+    <section class="teaser">
+        <div class="container">
+            <img src="assets/figures/teaser.png" alt="ThinkProprio overview: instruction and state guidance select complementary visual evidence" class="teaser-image">
+            <p class="teaser-caption">
+                <strong>ThinkProprio</strong> uses proprioception as VLM-vocabulary tokens that, together with the instruction,
+                select visual patches <em>before</em> the VLM. It keeps about 12% of visual tokens and cuts per-step latency from 52&nbsp;ms to 22&nbsp;ms.
+            </p>
+        </div>
+    </section>
+
+    <!-- Abstract -->
+    <section class="abstract">
+        <div class="container">
+            <h3 class="section-title">Abstract</h3>
+            <div class="method-description">
+                <p>Vision-language-action (VLA) models typically inject proprioception only as a late conditioning signal, preventing robot state from grounding instruction understanding or directing visual attention. We introduce <strong>ThinkProprio</strong>, which discretizes proprioception into VLM-vocabulary tokens and uses them jointly with the instruction to gate visual patches before VLM computation, steering the model toward action-relevant evidence while discarding redundant tokens early. We find that proprioception added as a passive conditioning signal leaves performance essentially unchanged; its value emerges when token-form state acts as an active query that, with the instruction, selects which visual patches the VLM processes. Systematic ablations show that VLM-vocabulary tokens match or outperform alternative state encodings without adding encoder parameters, and that retaining only about 12% of the visual tokens surpasses the full-token baseline on CALVIN ABC&rarr;D. Across CALVIN, LIBERO, and real-world manipulation, ThinkProprio reduces end-to-end inference latency while improving the matched full-token baseline.</p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Highlights -->
+    <section class="highlights">
+        <div class="container">
+            <h3 class="section-title">Highlights</h3>
+            <div class="highlight-grid">
+                <div class="highlight-card">
+                    <div class="highlight-image"><i class="fas fa-eye fa-3x"></i></div>
+                    <h4>State-Grounded Token Selection</h4>
+                    <p>Instruction and proprioception branches vote for visual patches before the VLM; their union and a global context token are kept.</p>
+                </div>
+                <div class="highlight-card">
+                    <div class="highlight-image"><i class="fas fa-bolt fa-3x"></i></div>
+                    <h4>58% Lower Latency</h4>
+                    <p>Keeping about <strong>12</strong> of 100 visual tokens reduces per-step latency from 52&nbsp;ms (FLOWER) to <strong>22&nbsp;ms</strong>.</p>
+                </div>
+                <div class="highlight-card">
+                    <div class="highlight-image"><i class="fas fa-trophy fa-3x"></i></div>
+                    <h4>Long-Horizon Gains</h4>
+                    <p><strong>4.52</strong> Avg. Len. on CALVIN ABC&rarr;D, with +4.1 and +3.6 points over FLOWER at LH-4 and LH-5.</p>
+                </div>
+                <div class="highlight-card">
+                    <div class="highlight-image"><i class="fas fa-code fa-3x"></i></div>
+                    <h4>VLM-Vocabulary Proprioception</h4>
+                    <p>Discretized state reuses the backbone's token embeddings, matching or outperforming learned state encoders without extra parameters.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Key Metrics -->
+    <section class="metrics">
+        <div class="container">
+            <div class="metrics-grid">
+                <div class="metric-card">
+                    <span class="metric-number">4.52</span>
+                    <span class="metric-label">Avg. Len.</span>
+                    <span class="metric-context">CALVIN ABC&rarr;D</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-number">97.7%</span>
+                    <span class="metric-label">Average Success</span>
+                    <span class="metric-context">LIBERO, 4 suites</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-number">88.9%</span>
+                    <span class="metric-label">Real-World Success</span>
+                    <span class="metric-context">14 tasks, vs. 80.7% FLOWER</span>
+                </div>
+                <div class="metric-card">
+                    <span class="metric-number">22&nbsp;ms</span>
+                    <span class="metric-label">Per-Step Latency</span>
+                    <span class="metric-context">vs. 52&nbsp;ms FLOWER</span>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Method -->
+    <section class="method">
+        <div class="container">
+            <h3 class="section-title">Method</h3>
+            <img src="assets/figures/method.png" alt="ThinkProprio architecture" class="method-image">
+            <div class="method-description">
+                <p>
+                    <strong>ThinkProprio</strong> discretizes the normalized robot state into 256 bins and maps each value to a token
+                    in the VLM vocabulary, so proprioception is embedded by the backbone's own embedding table.
+                </p>
+                <p>
+                    Before the VLM, two guidance branches score the visual patches: one driven by the instruction, one by proprioception.
+                    In each branch, every visual token casts a vote for one candidate patch, and a patch is kept if either branch votes for it.
+                    A straight-through noisy-OR gate makes the selection trainable end to end, a diversity regularizer encourages the two
+                    branches to cover complementary evidence, and a global context token summarizes the full view.
+                </p>
+                <p>
+                    The VLM processes the compact sequence of selected patches, context, proprioception, and instruction tokens.
+                    A flow-matching action head cross-attends to the resulting features to generate action chunks.
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Results -->
+    <section class="results">
+        <div class="container">
+            <h3 class="section-title">Results</h3>
+
+            <h4 class="table-title">CALVIN ABC&rarr;D</h4>
+            <div class="table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>LH-1</th>
+                            <th>LH-2</th>
+                            <th>LH-3</th>
+                            <th>LH-4</th>
+                            <th>LH-5</th>
+                            <th>Avg. Len.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>OpenVLA</td>
+                            <td>91.3</td>
+                            <td>77.8</td>
+                            <td>62.0</td>
+                            <td>52.1</td>
+                            <td>43.5</td>
+                            <td>3.27</td>
+                        </tr>
+                        <tr>
+                            <td>GR-1</td>
+                            <td>85.4</td>
+                            <td>71.2</td>
+                            <td>59.6</td>
+                            <td>49.7</td>
+                            <td>40.1</td>
+                            <td>3.06</td>
+                        </tr>
+                        <tr>
+                            <td>RoboFlamingo</td>
+                            <td>82.4</td>
+                            <td>61.9</td>
+                            <td>46.6</td>
+                            <td>33.1</td>
+                            <td>23.5</td>
+                            <td>2.47</td>
+                        </tr>
+                        <tr>
+                            <td>&pi;<sub>0</sub>*</td>
+                            <td>70.0</td>
+                            <td>48.0</td>
+                            <td>37.0</td>
+                            <td>28.0</td>
+                            <td>18.0</td>
+                            <td>2.01</td>
+                        </tr>
+                        <tr>
+                            <td>&pi;<sub>0.5</sub>*</td>
+                            <td>71.0</td>
+                            <td>56.0</td>
+                            <td>45.0</td>
+                            <td>37.0</td>
+                            <td>29.0</td>
+                            <td>2.38</td>
+                        </tr>
+                        <tr>
+                            <td>SuSIE</td>
+                            <td>87.0</td>
+                            <td>69.0</td>
+                            <td>49.0</td>
+                            <td>38.0</td>
+                            <td>26.0</td>
+                            <td>2.69</td>
+                        </tr>
+                        <tr>
+                            <td>VPP</td>
+                            <td>95.7</td>
+                            <td>91.2</td>
+                            <td>86.3</td>
+                            <td>81.0</td>
+                            <td>75.0</td>
+                            <td>4.29</td>
+                        </tr>
+                        <tr>
+                            <td>Seer</td>
+                            <td>96.3</td>
+                            <td>91.6</td>
+                            <td>86.1</td>
+                            <td>80.3</td>
+                            <td>74.0</td>
+                            <td>4.29</td>
+                        </tr>
+                        <tr>
+                            <td>FLOWER</td>
+                            <td><strong>99.3</strong></td>
+                            <td><strong>96.0</strong></td>
+                            <td><u>90.3</u></td>
+                            <td><u>82.3</u></td>
+                            <td><u>75.5</u></td>
+                            <td><u>4.44</u></td>
+                        </tr>
+                        <tr class="highlight-row">
+                            <td><strong>ThinkProprio (Ours)</strong></td>
+                            <td><u>98.9</u></td>
+                            <td><u>95.4</u></td>
+                            <td><strong>91.6</strong></td>
+                            <td><strong>86.4</strong></td>
+                            <td><strong>79.1</strong></td>
+                            <td><strong>4.52</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="table-note">Success rate (%) at each chain length and average completed chain length. *Finetuned by us. Best in bold, second-best underlined.</p>
+
+            <h4 class="table-title">LIBERO</h4>
+            <div class="table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Method</th>
+                            <th>Spatial</th>
+                            <th>Object</th>
+                            <th>Goal</th>
+                            <th>Long</th>
+                            <th>Avg.</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>OpenVLA</td>
+                            <td>84.7</td>
+                            <td>88.4</td>
+                            <td>79.2</td>
+                            <td>53.7</td>
+                            <td>76.5</td>
+                        </tr>
+                        <tr>
+                            <td>WorldVLA</td>
+                            <td>85.6</td>
+                            <td>89.0</td>
+                            <td>82.6</td>
+                            <td>59.0</td>
+                            <td>79.1</td>
+                        </tr>
+                        <tr>
+                            <td>SmolVLA</td>
+                            <td>93.0</td>
+                            <td>94.0</td>
+                            <td>91.0</td>
+                            <td>77.0</td>
+                            <td>88.8</td>
+                        </tr>
+                        <tr>
+                            <td>OpenVLA-OFT</td>
+                            <td>97.6</td>
+                            <td>98.4</td>
+                            <td>97.9</td>
+                            <td>94.5</td>
+                            <td>97.1</td>
+                        </tr>
+                        <tr>
+                            <td>COA-VLA</td>
+                            <td>85.3</td>
+                            <td>93.1</td>
+                            <td>85.8</td>
+                            <td>55.0</td>
+                            <td>79.8</td>
+                        </tr>
+                        <tr>
+                            <td>&pi;<sub>0</sub></td>
+                            <td>96.8</td>
+                            <td>98.8</td>
+                            <td>95.8</td>
+                            <td>85.2</td>
+                            <td>94.2</td>
+                        </tr>
+                        <tr>
+                            <td>&pi;<sub>0.5</sub></td>
+                            <td><u>98.0</u></td>
+                            <td>97.8</td>
+                            <td>95.6</td>
+                            <td>85.8</td>
+                            <td>94.3</td>
+                        </tr>
+                        <tr>
+                            <td>FLOWER</td>
+                            <td>97.5</td>
+                            <td><u>99.1</u></td>
+                            <td>96.1</td>
+                            <td><u>94.9</u></td>
+                            <td>96.9</td>
+                        </tr>
+                        <tr>
+                            <td>LightVLA</td>
+                            <td><strong>98.4</strong></td>
+                            <td>98.4</td>
+                            <td><strong>98.2</strong></td>
+                            <td>94.6</td>
+                            <td><u>97.4</u></td>
+                        </tr>
+                        <tr class="highlight-row">
+                            <td><strong>ThinkProprio (Ours)</strong></td>
+                            <td><strong>98.4</strong></td>
+                            <td><strong>99.2</strong></td>
+                            <td><u>98.0</u></td>
+                            <td><strong>95.2</strong></td>
+                            <td><strong>97.7</strong></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="table-note">Success rate (%) over 10 tasks per suite.</p>
+
+            <h4 class="table-title">Real World (UR3)</h4>
+            <img src="assets/figures/setup.png" alt="Real-world task setup" class="setup-image">
+            <div class="table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th rowspan="2">Pick-place</th>
+                            <th colspan="2">Banana</th>
+                            <th colspan="2">Corn</th>
+                            <th colspan="2">Tape</th>
+                        </tr>
+                        <tr>
+                            <th>FLOWER</th>
+                            <th>Ours</th>
+                            <th>FLOWER</th>
+                            <th>Ours</th>
+                            <th>FLOWER</th>
+                            <th>Ours</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Basket &rarr; Plate</td>
+                            <td>16/20</td>
+                            <td>17/20</td>
+                            <td>17/20</td>
+                            <td>19/20</td>
+                            <td>16/20</td>
+                            <td>19/20</td>
+                        </tr>
+                        <tr>
+                            <td>Basket &rarr; Table</td>
+                            <td>16/20</td>
+                            <td>18/20</td>
+                            <td>15/20</td>
+                            <td>18/20</td>
+                            <td>17/20</td>
+                            <td>19/20</td>
+                        </tr>
+                        <tr>
+                            <td>Plate &rarr; Basket</td>
+                            <td>19/20</td>
+                            <td>17/20</td>
+                            <td>15/20</td>
+                            <td>16/20</td>
+                            <td>16/20</td>
+                            <td>16/20</td>
+                        </tr>
+                        <tr>
+                            <td>Table &rarr; Basket</td>
+                            <td>16/20</td>
+                            <td>18/20</td>
+                            <td>15/20</td>
+                            <td>17/20</td>
+                            <td>16/20</td>
+                            <td>19/20</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="table-wrapper">
+                <table class="results-table">
+                    <thead>
+                        <tr>
+                            <th>Drawer</th>
+                            <th>FLOWER</th>
+                            <th>Ours</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>Open</td>
+                            <td>16/20</td>
+                            <td>18/20</td>
+                        </tr>
+                        <tr>
+                            <td>Close</td>
+                            <td>16/20</td>
+                            <td>18/20</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+            <p class="table-note">Successful trials out of 20 per task. Overall success: 88.9% (ThinkProprio) vs. 80.7% (FLOWER).</p>
+        </div>
+    </section>
+
+    <!-- Video Demos -->
+    <section class="videos">
+        <div class="container">
+            <h3 class="section-title">Rollouts</h3>
+            <p class="section-description">
+                ThinkProprio rollouts on CALVIN long-horizon chains (5 subtasks each), the four LIBERO suites, and real-world pick-and-place tasks.
+            </p>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">CALVIN ABC&rarr;D: Chain 1</h4>
+                <div class="timeline">
+                    <div class="timeline-step" data-step="0">1</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="1">2</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="2">3</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="3">4</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="4">5</div>
+                </div>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_1/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">1. Lift blue block</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_1/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">2. Place in slider</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_1/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">3. Turn on lightbulb</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_1/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">4. Push pink block right</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_1/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">5. Open drawer</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">CALVIN ABC&rarr;D: Chain 2</h4>
+                <div class="timeline">
+                    <div class="timeline-step" data-step="0">1</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="1">2</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="2">3</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="3">4</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="4">5</div>
+                </div>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_2/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">1. Push blue block right</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_2/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">2. Open drawer</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_2/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">3. Turn on LED</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_2/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">4. Lift blue block</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_2/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">5. Place in drawer</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">CALVIN ABC&rarr;D: Chain 3</h4>
+                <div class="timeline">
+                    <div class="timeline-step" data-step="0">1</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="1">2</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="2">3</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="3">4</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="4">5</div>
+                </div>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_3/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">1. Rotate blue block right</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_3/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">2. Lift blue block</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_3/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">3. Place in slider</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_3/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">4. Turn on lightbulb</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_3/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">5. Open drawer</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">CALVIN ABC&rarr;D: Chain 4</h4>
+                <div class="timeline">
+                    <div class="timeline-step" data-step="0">1</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="1">2</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="2">3</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="3">4</div>
+                    <div class="timeline-connector"></div>
+                    <div class="timeline-step" data-step="4">5</div>
+                </div>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_4/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">1. Open drawer</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_4/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">2. Turn on lightbulb</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_4/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">3. Move slider left</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_4/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">4. Rotate red block left</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/calvin/chain_4/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">5. Lift red block</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">LIBERO-Spatial</h4>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/spatial/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the black bowl between the plate and the ramekin and place it on the plate</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/spatial/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the black bowl on the cookie box and place it on the plate</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/spatial/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the black bowl on the stove and place it on the plate</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/spatial/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the black bowl on the ramekin and place it on the plate</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/spatial/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the black bowl on the wooden cabinet and place it on the plate</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">LIBERO-Object</h4>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/object/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the alphabet soup and place it in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/object/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the bbq sauce and place it in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/object/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the butter and place it in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/object/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the chocolate pudding and place it in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/object/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the orange juice and place it in the basket</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">LIBERO-Goal</h4>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/goal/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Open the middle drawer of the cabinet</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/goal/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put the wine bottle on top of the cabinet</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/goal/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put the bowl on top of the cabinet</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/goal/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put the cream cheese in the bowl</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/goal/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put the bowl on the plate</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">LIBERO-Long</h4>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/long/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put both the cream cheese box and the butter in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/long/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put the black bowl in the bottom drawer of the cabinet and close it</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/long/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the book and place it in the back compartment of the caddy</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/long/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put both the alphabet soup and the cream cheese box in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/libero/long/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Put the yellow and white mug in the microwave and close it</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+
+            <div class="trajectory-container">
+                <h4 class="trajectory-title">Real World (UR3)</h4>
+                <div class="video-carousel">
+                    <button class="carousel-btn prev" aria-label="Previous" disabled>&lsaquo;</button>
+                    <div class="carousel-viewport">
+                        <div class="carousel-track">
+                            <div class="video-card" data-index="0">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/real/0.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the tape from the table and place it in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="1">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/real/1.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the tape from the basket and place it on the plate</div>
+                            </div>
+                            <div class="video-card" data-index="2">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/real/2.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the corn from the basket and place it on the table</div>
+                            </div>
+                            <div class="video-card" data-index="3">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/real/3.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the tape from the plate and place it in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="4">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/real/4.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the corn from the table and place it in the basket</div>
+                            </div>
+                            <div class="video-card" data-index="5">
+                                <video controls muted playsinline preload="metadata">
+                                    <source src="assets/videos/real/5.mp4" type="video/mp4">
+                                </video>
+                                <div class="video-caption">Pick up the banana from the basket and place it on the plate</div>
+                            </div>
+                        </div>
+                    </div>
+                    <button class="carousel-btn next" aria-label="Next">&rsaquo;</button>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Token Selection Visualization -->
+    <section class="visualization">
+        <div class="container">
+            <h3 class="section-title">Token Selection Visualization</h3>
+            <img src="assets/figures/token-selection.png" alt="Token selection on LIBERO, CALVIN, and the real-world setup" class="viz-image">
+            <p class="viz-caption">
+                Qualitative token-selection results on LIBERO, CALVIN, and the real-world setup. Across time, the retained tokens
+                track task-relevant objects, targets, and robot&ndash;object interaction regions.
+            </p>
+        </div>
+    </section>
+
+    <!-- Citation -->
+    <section class="citation">
+        <div class="container">
+            <h3 class="section-title">Citation</h3>
+            <div class="bibtex-container">
+                <pre class="bibtex"><code>@article{wang2026thinkproprio,
+  title={Think Proprioceptively: State-Grounded Visual Token Selection for VLA Policies},
+  author={Wang, Fangyuan and Zhou, Peng and Qi, Jiaming and Lyu, Shipeng and He, Chengyang and Navarro-Alarcon, David and Guo, Guodong},
+  journal={arXiv preprint arXiv:2602.06575},
+  year={2026}
+}</code></pre>
+                <button class="copy-btn" onclick="copyBibtex()">
+                    <i class="fas fa-copy"></i> Copy
+                </button>
+            </div>
+        </div>
+    </section>
+
+    <!-- Acknowledgements -->
+    <section class="acknowledgements">
+        <div class="container">
+            <h3 class="section-title">Acknowledgements</h3>
+            <p>
+                This work builds upon several excellent open-source projects:
+                <a href="https://github.com/intuitive-robots/flower_vla_calvin">FLOWER</a>,
+                <a href="https://github.com/mees/calvin">CALVIN</a>, and
+                <a href="https://github.com/Lifelong-Robot-Learning/LIBERO">LIBERO</a>.
+            </p>
+            <p class="template-credit">
+                Website template inspired by <a href="https://diffusion-policy.cs.columbia.edu/">Diffusion Policy</a>.
+            </p>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2026 ThinkProprio Authors. All rights reserved.</p>
+        </div>
+    </footer>
+
+    <!-- Scripts -->
+    <script src="js/main.js"></script>
+</body>
+</html>
