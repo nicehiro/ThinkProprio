@@ -1,0 +1,28 @@
+eval_cfg_overwrite:
+  datamodule:
+    datasets:
+      lang_dataset:
+        lang_folder: lang_annotations
+  model:
+    num_sampling_steps: 4
+
+task_embedding_format: clip
+train_folder: ???
+checkpoint: ???
+dataset_path: null
+device: 0
+
+log_dir: ./logs/eval/libero
+num_videos: 0
+debug: False
+
+log_wandb: False
+wandb_entity: null
+
+num_sequences: 50
+max_steps: 520
+n_eval: 50
+num_sampling_steps: 4
+multistep: 10
+
+benchmark_name: libero_spatial

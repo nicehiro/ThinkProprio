@@ -1,0 +1,66 @@
+_target_: flower.models.flower.FLOWERVLA
+_recursive_: false
+
+vlm_path: microsoft/Florence-2-large
+vlm_revision: 21a599d414c4d928c9032694c424fb94458e3594
+freeze_florence: False
+freeze_vision_tower: False
+vlm_prompt_style: default
+token_dropout: 0.1
+
+multistep: ${multistep}
+num_sampling_steps: 4
+lowdim_obs_dim: 7
+action_dim: 7
+act_window_size: 10
+
+load_pretrained: False
+pretrained_model_path: null
+use_second_view: True
+second_view_key: image_wrist
+action_type_adaln: True
+use_causal_attention: true
+use_cross_attn: True
+use_adaln_cond: false
+use_readout_token: false
+return_act_chunk: false
+
+pre_vlm_use_residual: true
+pre_vlm_num_bins: 256
+pre_vlm_min_value: -3.0
+pre_vlm_max_value: 3.0
+pre_vlm_noise_start: 1.0
+pre_vlm_noise_end: 0.01
+pre_vlm_div_loss_weight: 0.0005
+pre_vlm_div_cos_rho: 0.75
+pre_vlm_div_temperature: 1.0
+
+sampling_type: uniform
+dit_dim: 1024
+n_heads: 16
+n_layers: 18
+attn_pdrop: 0.1
+resid_pdrop: 0.1
+mlp_pdrop: 0.1
+
+use_rope: true
+use_nope: false
+query_seq_len: 100
+rope_theta: 32.0
+
+optimizer_type: adamw
+
+optimizer:
+  _target_: torch.optim.AdamW
+  transformer_weight_decay: 0.05
+  learning_rate: 2e-5
+  betas: [0.9, 0.95]
+
+lr_scheduler:
+  lr_scheduler:
+    init_lr: 2e-5
+    init_lr_scale: 0.1
+    final_lr_scale: 0.5
+    total_steps: 50000
+    phase_ratio: "(0.05, 0.1, 0.85)"
+    lr: 2e-5
